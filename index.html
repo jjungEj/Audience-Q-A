@@ -53,9 +53,21 @@
     </div>
     <div class="row" style="margin-top:10px">
       <button id="btnLogin" class="btn half">로그인</button>
-      <div class="half"></div>
+      <button id="btnJoinRoom" class="btn ghost half">방 코드로 접속</button>
     </div>
   </div>
+
+  <div id="joinRoomCard" class="card hidden">
+    <h3>방 코드로 접속</h3>
+    <div>
+      <label>방 코드</label><input id="roomCodeInput" placeholder="방 코드 (예: r123abc)" />
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="joinRoomBtn" class="btn half">입장</button>
+      <button id="cancelJoin" class="btn ghost half">취소</button>
+    </div>
+  </div>
+
 
   <div id="dash" class="hidden">
     <div class="topbar">
@@ -170,6 +182,24 @@
 
   qs('#btnLogout').addEventListener('click', ()=>{ if(confirm('로그아웃 하시겠습니까?')) clearSession(); });
 
+  // 방 코드로 접속 (UI 핸들링)
+  qs('#btnJoinRoom').addEventListener('click', ()=>{ showCard('joinRoomCard'); });
+  qs('#cancelJoin').addEventListener('click', ()=>{ showCard('loginCard'); });
+  qs('#joinRoomBtn').addEventListener('click', ()=>{
+    const roomCode = qs('#roomCodeInput').value.trim();
+    if(!roomCode){
+        alert('방 코드를 입력해주세요.');
+        return;
+    }
+    const room = getRoom(roomCode);
+    if(room){
+        currentRoom = roomCode;
+        showRoom(roomCode);
+    } else {
+        alert('해당하는 방 코드가 없습니다.');
+    }
+  });
+
   // 대시보드 버튼
   qs('#btnCreateRoom').addEventListener('click', ()=>{ showCard('createRoomCard'); });
   qs('#cancelCreate').addEventListener('click', ()=>{ showCard('dash'); });
@@ -218,10 +248,8 @@
 
   // QR 코드 생성
   function generateQR(roomId) {
-    // URL 파라미터를 해시(#)로 변경하여 브라우저 이벤트를 활용
-    const url = `https://jjungej.github.io/Audience-Q-A/#room=${roomId}`;
+    const url = `https://jjungej.github.io/Audience-Q-A/?room=${roomId}`;
     
-    // qrcode 라이브러리 사용
     const canvas = qs('#qrcode');
     
     // 이전에 생성된 QR코드가 있으면 제거
@@ -233,7 +261,6 @@
         height: 120
     }, function (error) {
         if (error) console.error(error);
-        else console.log('QR Code generated!');
     });
     
     qs('#roomCodeDisplay').textContent = roomId;
@@ -350,7 +377,7 @@
 
   // 간단 카드 전환
   function showCard(id){
-    ['loginCard','dash','createRoomCard','roomCard'].forEach(x=>{
+    ['loginCard','dash','createRoomCard','roomCard', 'joinRoomCard'].forEach(x=>{
       const element = qs('#'+x);
       if (element) {
         element.classList.add('hidden');
@@ -377,23 +404,19 @@
     }
   }
 
-  // URL 해시로 방 입장 처리
-  function handleHashChange(){
-    const hash = window.location.hash;
-    if(hash.startsWith('#room=')){
-      const r = hash.substring(6);
+  // URL 파라미터로 바로 입장
+  function tryEnterFromUrl(){
+    const p = new URLSearchParams(location.search);
+    const r = p.get('room');
+    if(r){
       const room = getRoom(r);
       if(room){
         currentRoom = r;
         showRoom(r);
       } else {
-          // 방 ID가 URL에 있지만 존재하지 않을 경우 대시보드 대신 로그인 페이지로 이동
           showCard('loginCard');
           alert('해당 방을 찾을 수 없습니다. 올바른 URL을 확인해주세요.');
       }
-    } else {
-      // 해시가 없으면 기본 화면으로
-      loadState();
     }
   }
 
@@ -402,10 +425,8 @@
 
   // 시작
   loadState();
-  handleHashChange();
+  tryEnterFromUrl();
 
-  // 해시 변경 감지 이벤트 리스너 추가
-  window.addEventListener('hashchange', handleHashChange);
 
   // 페이지 리로드 간단한 동기화: storage 이벤트를 사용해 다른 탭 변경 반영
   window.addEventListener('storage', (e)=>{
