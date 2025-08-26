@@ -33,7 +33,7 @@
   .my-rooms-list .room-item button{width:auto;margin-left:8px;padding:6px 10px;font-size:13px}
   .question > div:last-child {
     display: flex;
-    flex-direction: row; /* Added to keep buttons inline */
+    flex-direction: row;
     align-items: center;
     gap: 6px;
   }
@@ -42,7 +42,7 @@
     align-items: center;
   }
   .room-info {
-    background-color: transparent; /* Changed to transparent */
+    background-color: transparent;
     border: none;
     padding: 0;
   }
@@ -57,9 +57,9 @@
 </head>
 <body>
 <script type="module">
-  // Firebase SDKs 가져오기
+  // Firebase SDKs 가져오기 (get 함수 추가)
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+  import { getDatabase, ref, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
 
   // 여러분의 웹 앱 Firebase 설정
   const firebaseConfig = {
@@ -83,7 +83,6 @@
     <div id="roleTag"></div>
   </header>
 
-  <!-- 로그인 -->
   <div id="loginCard" class="card">
     <div>
       <label>아이디</label><input id="inputId" placeholder="아이디" />
@@ -103,7 +102,6 @@
     </div>
   </div>
 
-  <!-- 방 코드로 접속 -->
   <div id="joinRoomCard" class="card hidden">
     <h3>방 코드로 접속</h3>
     <div>
@@ -115,8 +113,6 @@
     </div>
   </div>
 
-
-  <!-- 대시보드 (발표자용) -->
   <div id="dash" class="hidden">
     <div class="topbar">
       <button id="btnCreateRoom" class="btn">새로운 Q&A 생성</button>
@@ -127,7 +123,6 @@
     <div id="myRoomsList" class="my-rooms-list"></div>
   </div>
 
-  <!-- 발표자: 방 생성 -->
   <div id="createRoomCard" class="card hidden">
     <h3>방 생성</h3>
     <div style="margin-top:8px">
@@ -139,8 +134,6 @@
     </div>
   </div>
 
-
-  <!-- 방 화면(발표자/청중 공통) -->
   <div id="roomCard" class="card hidden">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -180,9 +173,8 @@
   const uid = () => 'r'+Math.random().toString(36).slice(2,9);
 
   // 상태
-  let user = null; // {id,pw,name}
-  let currentRoom = null; // roomId
-  // 로컬스토리지 키 (Firebase 사용을 위해 변경)
+  let user = null;
+  let currentRoom = null;
   const LS_USERS = 'ax_users';
   const LS_SESSION = 'ax_session';
 
@@ -196,8 +188,7 @@
 
   // Firebase DB에서 데이터 가져오기 (실시간 리스너)
   function listenToRooms() {
-    const roomsRef = firebase.database().ref('rooms');
-    roomsRef.on('value', (snapshot) => {
+    onValue(ref(db, 'rooms'), (snapshot) => {
       const rooms = snapshot.val() || {};
       if (currentRoom) {
         const room = rooms[currentRoom];
@@ -216,13 +207,13 @@
 
   // 룸/데이터 helpers
   function saveRoom(room){
-    firebase.database().ref('rooms/' + room.id).set(room);
+    set(ref(db, 'rooms/' + room.id), room);
   }
 
   function createRoom(title, owner){
     const id = uid();
     const newRoom = {id,title,owner,created:Date.now(),questions:[],pinned:[]};
-    firebase.database().ref('rooms/' + id).set(newRoom);
+    set(ref(db, 'rooms/' + id), newRoom);
     return id;
   }
 
@@ -230,89 +221,9 @@
     return rooms[id] || null;
   }
 
-  // 로그인
-  qs('#btnLogin').addEventListener('click', ()=>{
-    const id = qs('#inputId').value.trim();
-    const pw = qs('#inputPw').value.trim();
-    const name = qs('#inputName').value.trim() || id;
-    if(!id||!pw){ alert('아이디와 비밀번호 입력'); return; }
-    const users = JSON.parse(localStorage.getItem(LS_USERS)||'{}');
-    users[id] = {id,pw,name};
-    localStorage.setItem(LS_USERS, JSON.stringify(users));
-    saveSession({id,pw,name});
-  });
-
-  qs('#btnLogout').addEventListener('click', ()=>{ if(confirm('로그아웃 하시겠습니까?')) clearSession(); });
-
-  // 방 코드로 접속 (UI 핸들링)
-  qs('#btnJoinRoom').addEventListener('click', ()=>{ showCard('joinRoomCard'); });
-  qs('#cancelJoin').addEventListener('click', ()=>{ showCard('loginCard'); });
-  qs('#joinRoomBtn').addEventListener('click', ()=>{
-    const roomCode = qs('#roomCodeInput').value.trim();
-    if(!roomCode){
-        alert('방 코드를 입력해주세요.');
-        return;
-    }
-    firebase.database().ref('rooms/' + roomCode).once('value', (snapshot) => {
-        const room = snapshot.val();
-        if(room){
-            currentRoom = roomCode;
-            showRoom(roomCode, snapshot.val());
-        } else {
-            alert('해당하는 방 코드가 없습니다.');
-        }
-    });
-  });
-
-  // 익명 세션 초기화
-  qs('#resetAnonymous').addEventListener('click', ()=>{
-    if(confirm('익명 세션을 초기화하시겠습니까? 좋아요 누른 기록이 모두 삭제됩니다.')){
-        localStorage.removeItem('ax_likes_guest');
-        alert('초기화 완료. 다시 좋아요를 누를 수 있습니다.');
-    }
-  });
-
-  // 대시보드 버튼
-  qs('#btnCreateRoom').addEventListener('click', ()=>{ showCard('createRoomCard'); });
-  qs('#cancelCreate').addEventListener('click', ()=>{ showCard('dash'); });
-  qs('#createRoomBtn').addEventListener('click', ()=>{
-    const title = qs('#roomTitle').value.trim() || (user? user.name+'의 방' : '익명의 방');
-    const id = createRoom(title, user?user.id:'guest');
-    currentRoom = id;
-    showRoom(id);
-  });
-
-  // '나가기' 버튼 기능
-  qs('#backToDash').addEventListener('click', ()=>{ 
-    currentRoom = null;
-    if (user) { // 발표자는 대시보드로, 게스트는 로그인 화면으로
-        showCard('dash');
-    } else {
-        showCard('loginCard');
-    }
-  });
-
-
-  // 질문 제출
-  qs('#submitQ').addEventListener('click', ()=>{
-    const txt = qs('#qText').value.trim();
-    if(!txt){ alert('질문 내용을 입력하세요'); return; }
-
-    firebase.database().ref('rooms/' + currentRoom).once('value', (snapshot) => {
-      const room = snapshot.val();
-      if(!room) return;
-      const q = {id:uid(), text:txt, author: user? user.name : '익명', likes:0, likedBy:[], created:Date.now()};
-      room.questions = room.questions || [];
-      room.questions.push(q);
-      saveRoom(room);
-      qs('#qText').value='';
-    });
-  });
-
-  // 방 삭제
   function deleteRoom(roomId){
     if(confirm('정말로 이 방을 삭제하시겠습니까? 모든 질문과 데이터가 사라집니다.')){
-      firebase.database().ref('rooms/' + roomId).remove();
+      remove(ref(db, 'rooms/' + roomId));
       if(currentRoom === roomId){
           currentRoom = null;
           showCard('dash');
@@ -322,7 +233,7 @@
 
   // 방 표시
   function showRoom(id){
-    firebase.database().ref('rooms/' + id).once('value', (snapshot) => {
+    get(ref(db, 'rooms/' + id)).then((snapshot) => {
       const room = snapshot.val();
       if(!room){
         alert('방이 없습니다');
@@ -415,7 +326,7 @@
 
   // 좋아요 처리 (클라이언트 로컬 기반: 사용자별 liked 기록을 localStorage per-session)
   function handleLike(roomId,qId){
-    firebase.database().ref('rooms/' + roomId).once('value', (snapshot) => {
+    get(ref(db, 'rooms/' + roomId)).then((snapshot) => {
         const room = snapshot.val();
         if(!room) return;
         const sessionLikesKey = 'ax_likes_'+(user?user.id:'guest');
@@ -432,7 +343,7 @@
   }
 
   function togglePin(roomId,qId){
-    firebase.database().ref('rooms/' + roomId).once('value', (snapshot) => {
+    get(ref(db, 'rooms/' + roomId)).then((snapshot) => {
       const room = snapshot.val();
       if(!room) return;
       room.pinned = room.pinned || [];
@@ -484,7 +395,6 @@
     }
   }
 
-
   // 간단 카드 전환
   function showCard(id){
     ['loginCard','dash','createRoomCard','roomCard', 'joinRoomCard'].forEach(x=>{
@@ -516,7 +426,7 @@
     const p = new URLSearchParams(location.search);
     const r = p.get('room');
     if(r){
-      firebase.database().ref('rooms/' + r).once('value', (snapshot) => {
+      get(ref(db, 'rooms/' + r)).then((snapshot) => {
         const room = snapshot.val();
         if(room){
           currentRoom = r;
@@ -532,13 +442,84 @@
   // Helpers
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
-  // 시작
   function startApp() {
-    // Firebase 초기화 스크립트가 로드된 후에 실행
-    if (typeof firebase !== 'undefined' && typeof firebase.database !== 'undefined') {
-      loadState();
-      listenToRooms();
-      tryEnterFromUrl();
+    // Firebase 인스턴스 초기화 확인 후 실행
+    if (typeof db !== 'undefined') {
+        loadState();
+        listenToRooms();
+        tryEnterFromUrl();
+        
+        // 이벤트 리스너를 이 함수 안으로 이동
+        qs('#btnLogin').addEventListener('click', ()=>{
+          const id = qs('#inputId').value.trim();
+          const pw = qs('#inputPw').value.trim();
+          const name = qs('#inputName').value.trim() || id;
+          if(!id||!pw){ alert('아이디와 비밀번호 입력'); return; }
+          const users = JSON.parse(localStorage.getItem(LS_USERS)||'{}');
+          users[id] = {id,pw,name};
+          localStorage.setItem(LS_USERS, JSON.stringify(users));
+          saveSession({id,pw,name});
+        });
+    
+        qs('#btnLogout').addEventListener('click', ()=>{ if(confirm('로그아웃 하시겠습니까?')) clearSession(); });
+    
+        qs('#btnJoinRoom').addEventListener('click', ()=>{ showCard('joinRoomCard'); });
+        qs('#cancelJoin').addEventListener('click', ()=>{ showCard('loginCard'); });
+        qs('#joinRoomBtn').addEventListener('click', ()=>{
+          const roomCode = qs('#roomCodeInput').value.trim();
+          if(!roomCode){
+              alert('방 코드를 입력해주세요.');
+              return;
+          }
+          get(ref(db, 'rooms/' + roomCode)).then((snapshot) => {
+              const room = snapshot.val();
+              if(room){
+                  currentRoom = roomCode;
+                  showRoom(roomCode, snapshot.val());
+              } else {
+                  alert('해당하는 방 코드가 없습니다.');
+              }
+          });
+        });
+    
+        qs('#resetAnonymous').addEventListener('click', ()=>{
+          if(confirm('익명 세션을 초기화하시겠습니까? 좋아요 누른 기록이 모두 삭제됩니다.')){
+              localStorage.removeItem('ax_likes_guest');
+              alert('초기화 완료. 다시 좋아요를 누를 수 있습니다.');
+          }
+        });
+    
+        qs('#btnCreateRoom').addEventListener('click', ()=>{ showCard('createRoomCard'); });
+        qs('#cancelCreate').addEventListener('click', ()=>{ showCard('dash'); });
+        qs('#createRoomBtn').addEventListener('click', ()=>{
+          const title = qs('#roomTitle').value.trim() || (user? user.name+'의 방' : '익명의 방');
+          const id = createRoom(title, user?user.id:'guest');
+          currentRoom = id;
+          showRoom(id);
+        });
+    
+        qs('#backToDash').addEventListener('click', ()=>{ 
+          currentRoom = null;
+          if (user) {
+              showCard('dash');
+          } else {
+              showCard('loginCard');
+          }
+        });
+    
+        qs('#submitQ').addEventListener('click', ()=>{
+          const txt = qs('#qText').value.trim();
+          if(!txt){ alert('질문 내용을 입력하세요'); return; }
+          get(ref(db, 'rooms/' + currentRoom)).then((snapshot) => {
+            const room = snapshot.val();
+            if(!room) return;
+            const q = {id:uid(), text:txt, author: user? user.name : '익명', likes:0, likedBy:[], created:Date.now()};
+            room.questions = room.questions || [];
+            room.questions.push(q);
+            saveRoom(room);
+            qs('#qText').value='';
+          });
+        });
     } else {
       setTimeout(startApp, 100);
     }
