@@ -218,7 +218,8 @@
 
   // QR 코드 생성
   function generateQR(roomId) {
-    const url = `https://jjungej.github.io/Audience-Q-A/?room=${roomId}`;
+    // URL 파라미터를 해시(#)로 변경하여 브라우저 이벤트를 활용
+    const url = `https://jjungej.github.io/Audience-Q-A/#room=${roomId}`;
     
     // qrcode 라이브러리 사용
     const canvas = qs('#qrcode');
@@ -376,11 +377,11 @@
     }
   }
 
-  // URL에 room 파라미터가 있으면 바로 입장 가능
-  function tryEnterFromUrl(){
-    const p = new URLSearchParams(location.search);
-    const r = p.get('room');
-    if(r){
+  // URL 해시로 방 입장 처리
+  function handleHashChange(){
+    const hash = window.location.hash;
+    if(hash.startsWith('#room=')){
+      const r = hash.substring(6);
       const room = getRoom(r);
       if(room){
         currentRoom = r;
@@ -390,6 +391,9 @@
           showCard('loginCard');
           alert('해당 방을 찾을 수 없습니다. 올바른 URL을 확인해주세요.');
       }
+    } else {
+      // 해시가 없으면 기본 화면으로
+      loadState();
     }
   }
 
@@ -398,8 +402,10 @@
 
   // 시작
   loadState();
-  tryEnterFromUrl();
+  handleHashChange();
 
+  // 해시 변경 감지 이벤트 리스너 추가
+  window.addEventListener('hashchange', handleHashChange);
 
   // 페이지 리로드 간단한 동기화: storage 이벤트를 사용해 다른 탭 변경 반영
   window.addEventListener('storage', (e)=>{
