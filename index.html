@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="ko">
 <head>
@@ -11,13 +10,13 @@
   .wrap{max-width:480px;margin:0 auto;padding:16px}
   header{display:flex;gap:8px;align-items:center;justify-content:space-between}
   h1{font-size:18px;margin:0}
-  card{display:block;background:#fff;padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(10,20,50,.06);margin-top:12px}
+  .card{display:block;background:#fff;padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(10,20,50,.06);margin-top:12px}
   .hidden{display:none}
   input,button,textarea{font-size:15px;padding:10px;border-radius:8px;border:1px solid #e3e6ef;width:100%;box-sizing:border-box}
   .row{display:flex;gap:8px}
   .half{flex:1}
   .small{font-size:13px;color:#666;margin-top:6px}
-  .btn{background:#3b82f6;color:#fff;border:0;padding:10px;border-radius:8px}
+  .btn{background:#3b82f6;color:#fff;border:0;padding:10px;border-radius:8px;cursor:pointer}
   .btn.ghost{background:#fff;color:#333;border:1px solid #e3e6ef}
   .room-info{display:flex;flex-direction:column;gap:8px;margin-top:8px}
   .qr{background:#fff;padding:8px;border-radius:8px;text-align:center}
@@ -26,11 +25,14 @@
   .meta{font-size:12px;color:#666;margin-top:6px;display:flex;gap:8px;align-items:center}
   .like{background:#eef2ff;color:#3730a3;padding:6px 8px;border-radius:8px;border:0;cursor:pointer}
   .pinned{background:#fffbe6;border:1px solid #ffd666}
-  .topbar{display:flex;gap:8px;margin-top:10px}
+  .topbar{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
   .link-box{background:#f1f5f9;padding:8px;border-radius:8px;font-size:13px;overflow-wrap:anywhere}
   footer{margin:20px 0;text-align:center;font-size:12px;color:#888}
+  .my-rooms-list .room-item{display:flex;justify-content:space-between;align-items:center;padding:10px;margin-top:8px;border:1px solid #e3e6ef;border-radius:8px;}
+  .my-rooms-list .room-item button{width:auto;margin-left:8px;padding:6px 10px;font-size:13px}
   @media(min-width:520px){body{background:#eef2f9}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -39,7 +41,6 @@
     <div id="roleTag"></div>
   </header>
 
-  <!-- 로그인 -->
   <div id="loginCard" class="card">
     <div>
       <label>아이디</label><input id="inputId" placeholder="아이디" />
@@ -48,47 +49,50 @@
       <label>비밀번호</label><input id="inputPw" placeholder="비밀번호" type="password" />
     </div>
     <div style="margin-top:8px">
-      <label>이름</label><input id="inputName" placeholder="표시될 이름" />
+      <label>이름</label><input id="inputName" placeholder="표시될 이름 (발표자 이름)" />
     </div>
     <div class="row" style="margin-top:10px">
-      <button id="btnLogin" class="btn half">로그인</button>
+      <button id="btnLogin" class="btn half">발표자로 로그인</button>
+      <button id="btnEnterGuest" class="btn ghost half">게스트로 참여</button>
     </div>
   </div>
 
-  <!-- 대시보드 -->
   <div id="dash" class="hidden">
     <div class="topbar">
-      <button id="btnCreateRoom" class="btn">방 생성(발표자)</button>
-      <button id="btnEnterRoom" class="btn ghost">방 입장(청중)</button>
+      <button id="btnCreateRoom" class="btn">새로운 Q&A 생성</button>
       <button id="btnLogout" class="btn ghost">로그아웃</button>
     </div>
     <div id="myInfo" class="small"></div>
+    <h3 style="margin-top:20px">나의 질문방</h3>
+    <div id="myRoomsList" class="my-rooms-list"></div>
   </div>
 
-  <!-- 발표자: 방 생성 -->
-  <div id="createRoomCard" class="card hidden">
-    <h3>방 생성</h3>
+  <div id="enterRoomCard" class="card hidden">
+    <h3>Q&A 방 입장</h3>
     <div style="margin-top:8px">
-      <label>방 제목</label><input id="roomTitle" placeholder="예: 2분기 사업 업데이트" />
+      <label>방 ID</label><input id="roomIdInput" placeholder="예: rxxxxxx" />
     </div>
     <div class="row" style="margin-top:10px">
-      <button id="createRoomBtn" class="btn half">생성</button>
-      <button id="cancelCreate" class="btn ghost half">취소</button>
+      <button id="enterRoomBtn" class="btn half">입장</button>
+      <button id="cancelEnter" class="btn ghost half">취소</button>
     </div>
   </div>
 
-  <!-- 방 화면(발표자/청중 공통) -->
+
   <div id="roomCard" class="card hidden">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div>
         <strong id="roomTitleView"></strong>
         <div class="small" id="roomMeta"></div>
       </div>
-      
     </div>
-
+    
     <div id="presenterControls" class="hidden" style="margin-top:12px">
-      <div class="small">질문 개수 <span id="qCount">0</span></div>
+      <div class="qr" style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div id="qrcode"></div>
+        <div class="small">QR코드를 스캔하거나, 아래 코드로 접속하세요.</div>
+        <div style="font-size:18px;font-weight:600;color:#333" id="roomCodeDisplay"></div>
+      </div>
     </div>
 
     <div id="askArea" style="margin-top:12px">
@@ -103,7 +107,6 @@
 
     <div id="questionsList" style="margin-top:12px"></div>
   </div>
-
   
 </div>
 
@@ -120,6 +123,8 @@
   const LS_USERS = 'ax_users';
   const LS_ROOMS = 'ax_rooms';
   const LS_SESSION = 'ax_session';
+
+  let qrcodeInstance = null; // To hold QR code object
 
   // 초기화
   function loadState(){ 
@@ -158,14 +163,30 @@
     const pw = qs('#inputPw').value.trim();
     const name = qs('#inputName').value.trim() || id;
     if(!id||!pw){ alert('아이디와 비밀번호 입력'); return; }
-    // PoC: 사용자 저장(간단)
     const users = JSON.parse(localStorage.getItem(LS_USERS)||'{}');
     users[id] = {id,pw,name};
     localStorage.setItem(LS_USERS, JSON.stringify(users));
     saveSession({id,pw,name});
   });
 
- 
+  // 게스트 입장 카드
+  qs('#btnEnterGuest').addEventListener('click', ()=>{
+    showCard('enterRoomCard');
+  });
+
+  qs('#enterRoomBtn').addEventListener('click', ()=>{
+    const id = qs('#roomIdInput').value.trim();
+    const room = getRoom(id);
+    if(!room){ alert('해당 방을 찾을 수 없습니다.'); return; }
+    currentRoom = id;
+    showRoom(id);
+  });
+  
+  qs('#cancelEnter').addEventListener('click', ()=>{
+    qs('#roomIdInput').value = '';
+    showCard('loginCard');
+  });
+
   qs('#btnLogout').addEventListener('click', ()=>{ if(confirm('로그아웃 하시겠습니까?')) clearSession(); });
 
   // 대시보드 버튼
@@ -174,14 +195,6 @@
   qs('#createRoomBtn').addEventListener('click', ()=>{
     const title = qs('#roomTitle').value.trim() || (user? user.name+'의 방' : '익명의 방');
     const id = createRoom(title, user?user.id:'guest');
-    currentRoom = id;
-    showRoom(id);
-  });
-
-  qs('#btnEnterRoom').addEventListener('click', ()=>{
-    const id = prompt('입장할 방 ID를 입력하세요 (예: rxxxxxx)'); if(!id) return;
-    const room = getRoom(id);
-    if(!room){ alert('해당 방을 찾을 수 없습니다.'); return; }
     currentRoom = id;
     showRoom(id);
   });
@@ -207,24 +220,39 @@
     showCard('roomCard');
     qs('#roomTitleView').textContent = room.title;
     qs('#roomMeta').textContent = '방ID: '+room.id+' • 생성자: '+room.owner;
-       // 발표자 제어 노출 여부 (간단 판단: 로그인한 사용자가 방 소유자면 발표자)
+    
+    // 발표자 제어 노출 여부
     if(user && user.id === room.owner){
       qs('#presenterControls').classList.remove('hidden');
-      qs('#askForm').classList.add('hidden');
+      qs('#askArea').classList.add('hidden');
       qs('#roleTag').textContent = '발표자';
+      generateQR(room.id);
     } else {
       qs('#presenterControls').classList.add('hidden');
-      qs('#askForm').classList.remove('hidden');
+      qs('#askArea').classList.remove('hidden');
       qs('#roleTag').textContent = '게스트';
     }
     renderQuestions(room);
   }
 
- 
+  // QR 코드 생성
+  function generateQR(roomId) {
+    if (qrcodeInstance) {
+      qrcodeInstance.clear();
+    } else {
+      qrcodeInstance = new QRCode(qs('#qrcode'), {
+        width: 120,
+        height: 120
+      });
+    }
+    const url = `${window.location.protocol}//${window.location.host}${window.location.pathname}?room=${roomId}`;
+    qrcodeInstance.makeCode(url);
+    qs('#roomCodeDisplay').textContent = roomId;
+  }
+  
   // 질문 리스트 렌더
   function renderQuestions(room){
     qs('#qCount').textContent = room.questions.length;
-    // 정렬: pinned 먼저 (순서 유지), 그 다음 likes desc, 같은 likes -> 최신
     const pinnedSet = new Set(room.pinned || []);
     const pinned = room.questions.filter(q=>pinnedSet.has(q.id));
     const others = room.questions.filter(q=>!pinnedSet.has(q.id));
@@ -255,14 +283,13 @@
         handleLike(room.id,id);
       };
     });
-     // pin buttons
+      // pin buttons
     qsa('.pinBtn', container).forEach(b=>{
       b.onclick = ()=>{
         const id = b.dataset.id;
         togglePin(room.id,id);
       };
     });
-
   }
 
   // 좋아요 처리 (클라이언트 로컬 기반: 사용자별 liked 기록을 localStorage per-session)
@@ -297,12 +324,46 @@
     renderQuestions(room);
   }
 
+  // 발표자 대시보드 렌더링
+  function renderDashboard(){
+    const myRooms = Object.values(loadRooms()).filter(r => r.owner === user.id);
+    const container = qs('#myRoomsList');
+    container.innerHTML = '';
+    if(myRooms.length === 0){
+      container.innerHTML = '<p class="small">생성된 질문방이 없습니다.</p>';
+    } else {
+      myRooms.forEach(room => {
+        const item = document.createElement('div');
+        item.className = 'room-item';
+        item.innerHTML = `
+          <div>
+            <strong>${escapeHtml(room.title)}</strong>
+            <div class="small">ID: ${room.id}</div>
+          </div>
+          <button data-id="${room.id}" class="btn half enter-my-room">입장</button>
+        `;
+        container.appendChild(item);
+      });
+      qsa('.enter-my-room').forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.dataset.id;
+          currentRoom = id;
+          showRoom(id);
+        };
+      });
+    }
+  }
+
+
   // 간단 카드 전환
   function showCard(id){
-    ['loginCard','dash','createRoomCard','roomCard'].forEach(x=>{
+    ['loginCard','dash','createRoomCard','roomCard', 'enterRoomCard'].forEach(x=>{
       qs('#'+x).classList.add('hidden');
     });
     qs('#'+id).classList.remove('hidden');
+    if (id === 'dash' && user) {
+        renderDashboard();
+    }
   }
 
   // 기본 렌더링
@@ -315,9 +376,6 @@
       showCard('dash');
       qs('#myInfo').textContent = `로그인: ${user.name} (${user.id})`;
     }
-    qs('#createRoomCard').classList.add('hidden');
-    qs('#presenterControls').classList.add('hidden');
-    qs('#roomCard').classList.add('hidden');
   }
 
   // URL에 room 파라미터가 있으면 바로 입장 가능
@@ -336,26 +394,9 @@
   // Helpers
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
-  // QR SVG generator (very small implementation)
-  function qrSvg(text,size=120){
-    // For PoC: use simple identicon-like placeholder showing URL text (not a real QR)
-    // This keeps code small. In production, integrate a real QR library.
-    const short = text.length>24? text.slice(0,24)+'...': text;
-    return `<div style="font-size:11px;color:#222">${short}</div><svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${size}" height="${size}" fill="#fff" rx="8"/>
-      <g fill="#111">
-        <rect x="8" y="8" width="20" height="20"/>
-        <rect x="${size-28}" y="8" width="20" height="20"/>
-        <rect x="8" y="${size-28}" width="20" height="20"/>
-        <rect x="${Math.floor(size/2)-10}" y="${Math.floor(size/2)-10}" width="20" height="20"/>
-      </g>
-    </svg>`;
-  }
-
   // 시작
   loadState();
   tryEnterFromUrl();
-
 
 
   // 페이지 리로드 간단한 동기화: storage 이벤트를 사용해 다른 탭 변경 반영
