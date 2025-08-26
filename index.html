@@ -186,6 +186,14 @@
   const LS_USERS = 'ax_users';
   const LS_SESSION = 'ax_session';
 
+  // 세션 저장 및 로드
+  function saveSession(u){ localStorage.setItem(LS_SESSION, JSON.stringify(u)); user=u; renderInitial(); }
+  function clearSession(){ localStorage.removeItem(LS_SESSION); user=null; currentRoom=null; renderInitial(); }
+  function loadState(){ 
+    try{ user = JSON.parse(localStorage.getItem(LS_SESSION)); }catch(e){user=null;}
+    renderInitial();
+  }
+
   // Firebase DB에서 데이터 가져오기 (실시간 리스너)
   function listenToRooms() {
     const roomsRef = firebase.database().ref('rooms');
@@ -527,7 +535,7 @@
   // 시작
   function startApp() {
     // Firebase 초기화 스크립트가 로드된 후에 실행
-    if (typeof firebase !== 'undefined') {
+    if (typeof firebase !== 'undefined' && typeof firebase.database !== 'undefined') {
       loadState();
       listenToRooms();
       tryEnterFromUrl();
