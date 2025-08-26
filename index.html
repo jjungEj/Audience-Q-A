@@ -90,7 +90,7 @@
     <div id="presenterControls" class="hidden" style="margin-top:12px">
       <div class="small">질문 개수 <span id="qCount">0</span></div>
       <div class="qr" style="display:flex;flex-direction:column;align-items:center;gap:8px">
-        <div id="qrcode"></div>
+        <canvas id="qrcode"></canvas>
         <div class="small">QR코드를 스캔하거나, 아래 코드로 접속하세요.</div>
         <div style="font-size:18px;font-weight:600;color:#333" id="roomCodeDisplay"></div>
       </div>
@@ -220,11 +220,10 @@
   function generateQR(roomId) {
     const url = `https://jjungej.github.io/Audience-Q-A/?room=${roomId}`;
     
-    // 기존 qrcode 컨테이너 비우기
-    qs('#qrcode').innerHTML = '';
-
-    // qrcode-generator 라이브러리 사용
-    QRCode.toCanvas(qs('#qrcode'), url, {
+    // qrcode 라이브러리 사용
+    const canvas = qs('#qrcode');
+    
+    QRCode.toCanvas(canvas, url, {
         width: 120,
         height: 120
     }, function (error) {
