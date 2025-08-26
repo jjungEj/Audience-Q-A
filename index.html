@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Q&A service</title>
+<title>AX Q&A PoC</title>
 <!-- Favicon 추가 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
 <style>
@@ -84,7 +84,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Q&A service</h1>
+    <h1>AX Q&A PoC</h1>
     <div id="roleTag"></div>
   </header>
 
@@ -252,21 +252,30 @@
   }
   
   // 메시지 및 확인 기능 (모든 팝업 제거)
-  function showMessage(title, message){
+  function showMessage(title, message, autoHide = false){
     const messageBox = qs('#messageBox');
     const messageButtons = qs('#messageButtons');
     qs('#messageTitle').textContent = title;
     qs('#messageBody').textContent = message;
     messageButtons.innerHTML = '';
     
-    // 단순 메시지 팝업에는 확인 버튼만 추가
-    const okBtn = document.createElement('button');
-    okBtn.className = 'btn half';
-    okBtn.textContent = '확인';
-    okBtn.onclick = () => messageBox.classList.add('hidden');
-    messageButtons.appendChild(okBtn);
+    // 자동 숨김 여부에 따라 버튼 추가
+    if (!autoHide) {
+        // 단순 메시지 팝업에는 확인 버튼만 추가
+        const okBtn = document.createElement('button');
+        okBtn.className = 'btn half';
+        okBtn.textContent = '확인';
+        okBtn.onclick = () => messageBox.classList.add('hidden');
+        messageButtons.appendChild(okBtn);
+    }
 
     messageBox.classList.remove('hidden');
+
+    if (autoHide) {
+        setTimeout(() => {
+            messageBox.classList.add('hidden');
+        }, 2000); // 2초 후에 자동으로 사라집니다
+    }
   }
 
   function showConfirmation(title, message, onConfirm) {
@@ -575,7 +584,7 @@
               const existingUser = snapshot.val();
               if (existingUser.pw === pw) {
                   saveSession({id, pw, name: existingUser.name});
-                  showMessage('알림', '로그인 성공!');
+                  showMessage('알림', '로그인 성공!', true);
               } else {
                   showMessage('오류', '아이디 또는 비밀번호가 올바르지 않습니다.');
               }
@@ -606,7 +615,7 @@
           set(ref(db, 'users/' + id), { id, pw, name })
             .then(() => {
               saveSession({ id, pw, name });
-              showMessage('알림', '회원가입 완료! 로그인되었습니다.');
+              showMessage('알림', '회원가입 완료! 로그인되었습니다.', true);
             })
             .catch(error => {
               showMessage('오류', '계정 생성 중 오류가 발생했습니다.');
