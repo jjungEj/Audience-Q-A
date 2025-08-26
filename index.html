@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>AX Q&A PoC</title>
+<link rel="icon" href="https://via.placeholder.com/32">
 <style>
   :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans KR',Arial;}
   body{margin:0;background:#f6f7fb;color:#111}
@@ -88,6 +89,7 @@
     </div>
     
     <div id="presenterControls" class="hidden" style="margin-top:12px">
+      <div class="small">질문 개수 <span id="qCount">0</span></div>
       <div class="qr" style="display:flex;flex-direction:column;align-items:center;gap:8px">
         <div id="qrcode"></div>
         <div class="small">QR코드를 스캔하거나, 아래 코드로 접속하세요.</div>
@@ -227,14 +229,19 @@
       width: 120,
       height: 120
     });
-    const url = `${window.location.protocol}//${window.location.host}${window.location.pathname}?room=${roomId}`;
+    // GitHub Pages 환경에 맞게 URL 생성 방식 수정
+    const url = `https://jjungej.github.io/Audience-Q-A/?room=${roomId}`;
     qrcodeInstance.makeCode(url);
     qs('#roomCodeDisplay').textContent = roomId;
   }
   
   // 질문 리스트 렌더
   function renderQuestions(room){
-    qs('#qCount').textContent = room.questions.length;
+    const qCountElement = qs('#qCount');
+    if (qCountElement) {
+        qCountElement.textContent = room.questions.length;
+    }
+
     const pinnedSet = new Set(room.pinned || []);
     const pinned = room.questions.filter(q=>pinnedSet.has(q.id));
     const others = room.questions.filter(q=>!pinnedSet.has(q.id));
