@@ -52,8 +52,8 @@
       <label>이름</label><input id="inputName" placeholder="표시될 이름 (발표자 이름)" />
     </div>
     <div class="row" style="margin-top:10px">
-      <button id="btnLogin" class="btn half">발표자로 로그인</button>
-      <button id="btnEnterGuest" class="btn ghost half">게스트로 참여</button>
+      <button id="btnLogin" class="btn half">로그인</button>
+      <div class="half"></div>
     </div>
   </div>
 
@@ -66,18 +66,6 @@
     <h3 style="margin-top:20px">나의 질문방</h3>
     <div id="myRoomsList" class="my-rooms-list"></div>
   </div>
-
-  <div id="enterRoomCard" class="card hidden">
-    <h3>Q&A 방 입장</h3>
-    <div style="margin-top:8px">
-      <label>방 ID</label><input id="roomIdInput" placeholder="예: rxxxxxx" />
-    </div>
-    <div class="row" style="margin-top:10px">
-      <button id="enterRoomBtn" class="btn half">입장</button>
-      <button id="cancelEnter" class="btn ghost half">취소</button>
-    </div>
-  </div>
-
 
   <div id="roomCard" class="card hidden">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -169,24 +157,6 @@
     saveSession({id,pw,name});
   });
 
-  // 게스트 입장 카드
-  qs('#btnEnterGuest').addEventListener('click', ()=>{
-    showCard('enterRoomCard');
-  });
-
-  qs('#enterRoomBtn').addEventListener('click', ()=>{
-    const id = qs('#roomIdInput').value.trim();
-    const room = getRoom(id);
-    if(!room){ alert('해당 방을 찾을 수 없습니다.'); return; }
-    currentRoom = id;
-    showRoom(id);
-  });
-  
-  qs('#cancelEnter').addEventListener('click', ()=>{
-    qs('#roomIdInput').value = '';
-    showCard('loginCard');
-  });
-
   qs('#btnLogout').addEventListener('click', ()=>{ if(confirm('로그아웃 하시겠습니까?')) clearSession(); });
 
   // 대시보드 버튼
@@ -238,13 +208,13 @@
   // QR 코드 생성
   function generateQR(roomId) {
     if (qrcodeInstance) {
-      qrcodeInstance.clear();
-    } else {
-      qrcodeInstance = new QRCode(qs('#qrcode'), {
-        width: 120,
-        height: 120
-      });
-    }
+      qs('#qrcode').innerHTML = '';
+      qrcodeInstance = null;
+    } 
+    qrcodeInstance = new QRCode(qs('#qrcode'), {
+      width: 120,
+      height: 120
+    });
     const url = `${window.location.protocol}//${window.location.host}${window.location.pathname}?room=${roomId}`;
     qrcodeInstance.makeCode(url);
     qs('#roomCodeDisplay').textContent = roomId;
@@ -357,7 +327,7 @@
 
   // 간단 카드 전환
   function showCard(id){
-    ['loginCard','dash','createRoomCard','roomCard', 'enterRoomCard'].forEach(x=>{
+    ['loginCard','dash','createRoomCard','roomCard'].forEach(x=>{
       qs('#'+x).classList.add('hidden');
     });
     qs('#'+id).classList.remove('hidden');
@@ -366,7 +336,6 @@
     }
   }
 
-  
   // 기본 렌더링
   function renderInitial(){
     if(!user){
@@ -388,6 +357,10 @@
       if(room){
         currentRoom = r;
         showRoom(r);
+      } else {
+          // 방 ID가 URL에 있지만 존재하지 않을 경우 대시보드 대신 로그인 페이지로 이동
+          showCard('loginCard');
+          alert('해당 방을 찾을 수 없습니다. 올바른 URL을 확인해주세요.');
       }
     }
   }
