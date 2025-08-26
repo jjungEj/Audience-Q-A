@@ -192,6 +192,7 @@
   <div id="messageBox" class="hidden">
     <h4 id="messageTitle"></h4>
     <p id="messageBody"></p>
+    <div id="messageButtons" class="row" style="margin-top: 15px;"></div>
   </div>
   
 </div>
@@ -253,17 +254,45 @@
   // 메시지 및 확인 기능 (모든 팝업 제거)
   function showMessage(title, message){
     const messageBox = qs('#messageBox');
+    const messageButtons = qs('#messageButtons');
     qs('#messageTitle').textContent = title;
     qs('#messageBody').textContent = message;
+    messageButtons.innerHTML = '';
+    
+    // 단순 메시지 팝업에는 확인 버튼만 추가
+    const okBtn = document.createElement('button');
+    okBtn.className = 'btn half';
+    okBtn.textContent = '확인';
+    okBtn.onclick = () => messageBox.classList.add('hidden');
+    messageButtons.appendChild(okBtn);
+
     messageBox.classList.remove('hidden');
-    messageBox.classList.remove('fade-out');
-    // 3초 후 메시지 숨김
-    setTimeout(()=>{
-      messageBox.classList.add('fade-out');
-      setTimeout(()=>{
-        messageBox.classList.add('hidden');
-      }, 300); // fade-out transition duration
-    }, 3000);
+  }
+
+  function showConfirmation(title, message, onConfirm) {
+    const messageBox = qs('#messageBox');
+    const messageButtons = qs('#messageButtons');
+    qs('#messageTitle').textContent = title;
+    qs('#messageBody').textContent = message;
+    messageButtons.innerHTML = '';
+    
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn half red';
+    confirmBtn.textContent = '예';
+    confirmBtn.onclick = () => {
+      onConfirm();
+      messageBox.classList.add('hidden');
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn half ghost';
+    cancelBtn.textContent = '아니오';
+    cancelBtn.onclick = () => messageBox.classList.add('hidden');
+
+    messageButtons.appendChild(confirmBtn);
+    messageButtons.appendChild(cancelBtn);
+
+    messageBox.classList.remove('hidden');
   }
   
   // Firebase DB에서 데이터 가져오기 (실시간 리스너)
@@ -481,7 +510,7 @@
       qsa('.delete-my-room').forEach(btn => {
         btn.onclick = () => {
           const id = btn.dataset.id;
-          deleteRoom(id);
+          showConfirmation('방 삭제', '삭제 시 좋아요, 고정, 질문들까지 모두 삭제됩니다. 정말 삭제하시겠습니까?', () => deleteRoom(id));
         };
       });
     }
