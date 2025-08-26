@@ -94,27 +94,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
 <body>
-<script type="module">
-  // Firebase SDKs 가져오기 (get 함수 추가)
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
-
-  // 여러분의 웹 앱 Firebase 설정
-  const firebaseConfig = {
-    apiKey: "AIzaSyCvReaeCxaXtZW9glPcawb-iDN7D2L0cXc",
-    authDomain: "qawlf-f2041.firebaseapp.com",
-    projectId: "qawlf-f2041",
-    storageBucket: "qawlf-f2041.firebasestorage.app",
-    messagingSenderId: "505520622932",
-    appId: "1:505520622932:web:619f946ec6fde6a3340cc1",
-    databaseURL: "https://qawlf-f2041-default-rtdb.firebaseio.com"
-  };
-
-  // Firebase 초기화
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-</script>
-
 <div class="wrap">
   <header>
     <h1>AX Q&A PoC</h1>
@@ -213,7 +192,26 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+  // Firebase SDKs 가져오기 (get 함수 추가)
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+
+  // 여러분의 웹 앱 Firebase 설정
+  const firebaseConfig = {
+    apiKey: "AIzaSyCvReaeCxaXtZW9glPcawb-iDN7D2L0cXc",
+    authDomain: "qawlf-f2041.firebaseapp.com",
+    projectId: "qawlf-f2041",
+    storageBucket: "qawlf-f2041.firebasestorage.app",
+    messagingSenderId: "505520622932",
+    appId: "1:505520622932:web:619f946ec6fde6a3340cc1",
+    databaseURL: "https://qawlf-f2041-default-rtdb.firebaseio.com"
+  };
+
+  // Firebase 초기화
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
   // 간단 유틸
   const qs = (s, el=document) => el.querySelector(s);
   const qsa = (s, el=document) => Array.from(el.querySelectorAll(s));
@@ -247,6 +245,39 @@
       modalOkBtn.onclick = () => {
           modal.classList.add('hidden');
       };
+  }
+  
+  // 커스텀 confirm 박스
+  function showConfirm(title, message, onConfirm, onCancel){
+      const modal = qs('#messageModal');
+      const modalTitle = qs('#modalTitle');
+      const modalMessage = qs('#modalMessage');
+      const modalOkBtn = qs('#modalOkBtn');
+      
+      modalTitle.textContent = title;
+      modalMessage.textContent = message;
+      modal.classList.remove('hidden');
+
+      const btnCancel = document.createElement('button');
+      btnCancel.textContent = '취소';
+      btnCancel.className = 'btn ghost';
+      btnCancel.style.marginLeft = '8px';
+      
+      modalOkBtn.textContent = '확인';
+      
+      modalOkBtn.onclick = () => {
+          modal.classList.add('hidden');
+          modalOkBtn.parentNode.removeChild(btnCancel);
+          if (onConfirm) onConfirm();
+      };
+      
+      btnCancel.onclick = () => {
+          modal.classList.add('hidden');
+          btnCancel.parentNode.removeChild(btnCancel);
+          if (onCancel) onCancel();
+      };
+
+      modalOkBtn.parentNode.appendChild(btnCancel);
   }
 
   // Firebase DB에서 데이터 가져오기 (실시간 리스너)
@@ -285,15 +316,13 @@
   }
 
   function deleteRoom(roomId){
-    // confirm을 커스텀 메시지 박스로 대체
-    const confirmDelete = window.confirm('정말로 이 방을 삭제하시겠습니까? 모든 질문과 데이터가 사라집니다.');
-    if(confirmDelete){
+    showConfirm('확인', '정말로 이 방을 삭제하시겠습니까? 모든 질문과 데이터가 사라집니다.', ()=>{
       remove(ref(db, 'rooms/' + roomId));
       if(currentRoom === roomId){
           currentRoom = null;
           showCard('dash');
       }
-    }
+    });
   }
 
   // 방 표시
@@ -507,110 +536,102 @@
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
   function startApp() {
-    // Firebase 인스턴스 초기화 확인 후 실행
-    if (typeof db !== 'undefined') {
-        loadState();
-        listenToRooms();
-        tryEnterFromUrl();
-        
-        // 이벤트 리스너를 이 함수 안으로 이동
-        qs('#btnLogin').addEventListener('click', ()=>{
-          const id = qs('#inputId').value.trim();
-          const pw = qs('#inputPw').value.trim();
-          const name = qs('#inputName').value.trim() || id;
-          if(!id || !pw){ 
-            showMessage('오류', '아이디와 비밀번호를 입력해주세요.'); 
-            return; 
-          }
-          const users = JSON.parse(localStorage.getItem(LS_USERS)||'{}');
-          
-          if(users[id]){
-              // 로그인
-              if(users[id].pw === pw){
-                  saveSession({id, pw, name: users[id].name});
-              } else {
-                  showMessage('오류', '아이디 또는 비밀번호가 올바르지 않습니다.');
-              }
+    // 이벤트 리스너를 이 함수 안으로 이동
+    qs('#btnLogin').addEventListener('click', ()=>{
+      const id = qs('#inputId').value.trim();
+      const pw = qs('#inputPw').value.trim();
+      const name = qs('#inputName').value.trim() || id;
+      if(!id || !pw){ 
+        showMessage('오류', '아이디와 비밀번호를 입력해주세요.'); 
+        return; 
+      }
+      const users = JSON.parse(localStorage.getItem(LS_USERS)||'{}');
+      
+      if(users[id]){
+          // 로그인
+          if(users[id].pw === pw){
+              saveSession({id, pw, name: users[id].name});
           } else {
-              // 가입
-              users[id] = {id,pw,name};
-              localStorage.setItem(LS_USERS, JSON.stringify(users));
-              saveSession({id,pw,name});
-              showMessage('알림', '새 계정이 생성되었습니다. 로그인되었습니다.');
+              showMessage('오류', '아이디 또는 비밀번호가 올바르지 않습니다.');
           }
-        });
-    
-        qs('#btnLogout').addEventListener('click', ()=>{ 
-            // confirm을 커스텀 메시지 박스로 대체
-            const confirmLogout = window.confirm('로그아웃 하시겠습니까?');
-            if(confirmLogout) clearSession(); 
-        });
-    
-        qs('#btnJoinRoom').addEventListener('click', ()=>{ showCard('joinRoomCard'); });
-        qs('#cancelJoin').addEventListener('click', ()=>{ showCard('loginCard'); });
-        qs('#joinRoomBtn').addEventListener('click', ()=>{
-          const roomCode = qs('#roomCodeInput').value.trim();
-          if(!roomCode){
-              showMessage('오류', '방 코드를 입력해주세요.');
-              return;
-          }
-          get(ref(db, 'rooms/' + roomCode)).then((snapshot) => {
-              const room = snapshot.val();
-              if(room){
-                  currentRoom = roomCode;
-                  showRoom(roomCode, snapshot.val());
-              } else {
-                  showMessage('오류', '해당하는 방 코드가 없습니다.');
-              }
-          });
-        });
-    
-        qs('#resetAnonymous').addEventListener('click', ()=>{
-          // confirm을 커스텀 메시지 박스로 대체
-          const confirmReset = window.confirm('익명 세션을 초기화하시겠습니까? 좋아요 누른 기록이 모두 삭제됩니다.');
-          if(confirmReset){
-              localStorage.removeItem('ax_likes_guest');
-              showMessage('알림', '초기화 완료. 다시 좋아요를 누를 수 있습니다.');
-          }
-        });
-    
-        qs('#btnCreateRoom').addEventListener('click', ()=>{ showCard('createRoomCard'); });
-        qs('#cancelCreate').addEventListener('click', ()=>{ showCard('dash'); });
-        qs('#createRoomBtn').addEventListener('click', ()=>{
-          const title = qs('#roomTitle').value.trim() || (user? user.name+'의 방' : '익명의 방');
-          const id = createRoom(title, user?user.id:'guest');
-          currentRoom = id;
-          showRoom(id);
-        });
-    
-        qs('#backToDash').addEventListener('click', ()=>{ 
-          currentRoom = null;
-          if (user) {
-              showCard('dash');
+      } else {
+          // 가입
+          users[id] = {id,pw,name};
+          localStorage.setItem(LS_USERS, JSON.stringify(users));
+          saveSession({id,pw,name});
+          showMessage('알림', '새 계정이 생성되었습니다. 로그인되었습니다.');
+      }
+    });
+
+    qs('#btnLogout').addEventListener('click', ()=>{ 
+        showConfirm('확인', '로그아웃 하시겠습니까?', ()=>clearSession());
+    });
+
+    qs('#btnJoinRoom').addEventListener('click', ()=>{ showCard('joinRoomCard'); });
+    qs('#cancelJoin').addEventListener('click', ()=>{ showCard('loginCard'); });
+    qs('#joinRoomBtn').addEventListener('click', ()=>{
+      const roomCode = qs('#roomCodeInput').value.trim();
+      if(!roomCode){
+          showMessage('오류', '방 코드를 입력해주세요.');
+          return;
+      }
+      get(ref(db, 'rooms/' + roomCode)).then((snapshot) => {
+          const room = snapshot.val();
+          if(room){
+              currentRoom = roomCode;
+              showRoom(roomCode, snapshot.val());
           } else {
-              showCard('loginCard');
+              showMessage('오류', '해당하는 방 코드가 없습니다.');
           }
-        });
-    
-        qs('#submitQ').addEventListener('click', ()=>{
-          const txt = qs('#qText').value.trim();
-          if(!txt){ showMessage('오류', '질문 내용을 입력하세요.'); return; }
-          get(ref(db, 'rooms/' + currentRoom)).then((snapshot) => {
-            const room = snapshot.val();
-            if(!room) return;
-            const q = {id:uid(), text:txt, author: user? user.name : '익명', likes:0, likedBy:[], created:Date.now()};
-            room.questions = room.questions || [];
-            room.questions.push(q);
-            saveRoom(room);
-            qs('#qText').value='';
-          });
-        });
-    } else {
-      setTimeout(startApp, 100);
-    }
+      });
+    });
+
+    qs('#resetAnonymous').addEventListener('click', ()=>{
+      showConfirm('확인', '익명 세션을 초기화하시겠습니까? 좋아요 누른 기록이 모두 삭제됩니다.', ()=>{
+          localStorage.removeItem('ax_likes_guest');
+          showMessage('알림', '초기화 완료. 다시 좋아요를 누를 수 있습니다.');
+      });
+    });
+
+    qs('#btnCreateRoom').addEventListener('click', ()=>{ showCard('createRoomCard'); });
+    qs('#cancelCreate').addEventListener('click', ()=>{ showCard('dash'); });
+    qs('#createRoomBtn').addEventListener('click', ()=>{
+      const title = qs('#roomTitle').value.trim() || (user? user.name+'의 방' : '익명의 방');
+      const id = createRoom(title, user?user.id:'guest');
+      currentRoom = id;
+      showRoom(id);
+    });
+
+    qs('#backToDash').addEventListener('click', ()=>{ 
+      currentRoom = null;
+      if (user) {
+          showCard('dash');
+      } else {
+          showCard('loginCard');
+      }
+    });
+
+    qs('#submitQ').addEventListener('click', ()=>{
+      const txt = qs('#qText').value.trim();
+      if(!txt){ showMessage('오류', '질문 내용을 입력하세요.'); return; }
+      get(ref(db, 'rooms/' + currentRoom)).then((snapshot) => {
+        const room = snapshot.val();
+        if(!room) return;
+        const q = {id:uid(), text:txt, author: user? user.name : '익명', likes:0, likedBy:[], created:Date.now()};
+        room.questions = room.questions || [];
+        room.questions.push(q);
+        saveRoom(room);
+        qs('#qText').value='';
+      });
+    });
   }
   
-  startApp();
+  window.onload = function() {
+      loadState();
+      listenToRooms();
+      tryEnterFromUrl();
+      startApp();
+  };
 </script>
 </body>
 </html>
