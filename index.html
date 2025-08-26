@@ -67,6 +67,18 @@
     <div id="myRoomsList" class="my-rooms-list"></div>
   </div>
 
+  <div id="createRoomCard" class="card hidden">
+    <h3>방 생성</h3>
+    <div style="margin-top:8px">
+      <label>방 제목</label><input id="roomTitle" placeholder="예: 2분기 사업 업데이트" />
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="createRoomBtn" class="btn half">생성</button>
+      <button id="cancelCreate" class="btn ghost half">취소</button>
+    </div>
+  </div>
+
+
   <div id="roomCard" class="card hidden">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -328,9 +340,15 @@
   // 간단 카드 전환
   function showCard(id){
     ['loginCard','dash','createRoomCard','roomCard'].forEach(x=>{
-      qs('#'+x).classList.add('hidden');
+      const element = qs('#'+x);
+      if (element) {
+        element.classList.add('hidden');
+      }
     });
-    qs('#'+id).classList.remove('hidden');
+    const targetElement = qs('#'+id);
+    if (targetElement) {
+      targetElement.classList.remove('hidden');
+    }
     if (id === 'dash' && user) {
         renderDashboard();
     }
