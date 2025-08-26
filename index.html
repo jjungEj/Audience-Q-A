@@ -18,6 +18,7 @@
   .small{font-size:13px;color:#666;margin-top:6px}
   .btn{background:#3b82f6;color:#fff;border:0;padding:10px;border-radius:8px;cursor:pointer}
   .btn.ghost{background:#fff;color:#333;border:1px solid #e3e6ef}
+  .btn.red{background:#ef4444;color:#fff;border:0}
   .room-info{display:flex;flex-direction:column;gap:8px;margin-top:8px}
   .qr{background:#fff;padding:8px;border-radius:8px;text-align:center}
   .question{background:#fff;padding:10px;border-radius:10px;margin-top:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
@@ -235,6 +236,21 @@
     renderQuestions(room);
   });
 
+  // 방 삭제
+  function deleteRoom(roomId){
+    if(confirm('정말로 이 방을 삭제하시겠습니까? 모든 질문과 데이터가 사라집니다.')){
+        const rooms = loadRooms();
+        delete rooms[roomId];
+        saveRooms(rooms);
+        if(currentRoom === roomId){
+            currentRoom = null;
+            showCard('dash');
+        } else {
+            renderDashboard();
+        }
+    }
+  }
+
   // 방 표시
   function showRoom(id){
     const room = getRoom(id);
@@ -371,7 +387,10 @@
             <strong>${escapeHtml(room.title)}</strong>
             <div class="small">ID: ${room.id}</div>
           </div>
-          <button data-id="${room.id}" class="btn half enter-my-room">입장</button>
+          <div>
+            <button data-id="${room.id}" class="btn half enter-my-room">입장</button>
+            <button data-id="${room.id}" class="btn ghost red delete-my-room">삭제</button>
+          </div>
         `;
         container.appendChild(item);
       });
@@ -380,6 +399,12 @@
           const id = btn.dataset.id;
           currentRoom = id;
           showRoom(id);
+        };
+      });
+      qsa('.delete-my-room').forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.dataset.id;
+          deleteRoom(id);
         };
       });
     }
