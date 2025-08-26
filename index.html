@@ -1,0 +1,370 @@
+
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AX Q&A PoC</title>
+<style>
+  :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans KR',Arial;}
+  body{margin:0;background:#f6f7fb;color:#111}
+  .wrap{max-width:480px;margin:0 auto;padding:16px}
+  header{display:flex;gap:8px;align-items:center;justify-content:space-between}
+  h1{font-size:18px;margin:0}
+  card{display:block;background:#fff;padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(10,20,50,.06);margin-top:12px}
+  .hidden{display:none}
+  input,button,textarea{font-size:15px;padding:10px;border-radius:8px;border:1px solid #e3e6ef;width:100%;box-sizing:border-box}
+  .row{display:flex;gap:8px}
+  .half{flex:1}
+  .small{font-size:13px;color:#666;margin-top:6px}
+  .btn{background:#3b82f6;color:#fff;border:0;padding:10px;border-radius:8px}
+  .btn.ghost{background:#fff;color:#333;border:1px solid #e3e6ef}
+  .room-info{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .qr{background:#fff;padding:8px;border-radius:8px;text-align:center}
+  .question{background:#fff;padding:10px;border-radius:10px;margin-top:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .q-left{flex:1}
+  .meta{font-size:12px;color:#666;margin-top:6px;display:flex;gap:8px;align-items:center}
+  .like{background:#eef2ff;color:#3730a3;padding:6px 8px;border-radius:8px;border:0;cursor:pointer}
+  .pinned{background:#fffbe6;border:1px solid #ffd666}
+  .topbar{display:flex;gap:8px;margin-top:10px}
+  .link-box{background:#f1f5f9;padding:8px;border-radius:8px;font-size:13px;overflow-wrap:anywhere}
+  footer{margin:20px 0;text-align:center;font-size:12px;color:#888}
+  @media(min-width:520px){body{background:#eef2f9}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AX Q&A PoC</h1>
+    <div id="roleTag"></div>
+  </header>
+
+  <!-- 로그인 -->
+  <div id="loginCard" class="card">
+    <div>
+      <label>아이디</label><input id="inputId" placeholder="아이디" />
+    </div>
+    <div style="margin-top:8px">
+      <label>비밀번호</label><input id="inputPw" placeholder="비밀번호" type="password" />
+    </div>
+    <div style="margin-top:8px">
+      <label>이름</label><input id="inputName" placeholder="표시될 이름" />
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="btnLogin" class="btn half">로그인</button>
+    </div>
+  </div>
+
+  <!-- 대시보드 -->
+  <div id="dash" class="hidden">
+    <div class="topbar">
+      <button id="btnCreateRoom" class="btn">방 생성(발표자)</button>
+      <button id="btnEnterRoom" class="btn ghost">방 입장(청중)</button>
+      <button id="btnLogout" class="btn ghost">로그아웃</button>
+    </div>
+    <div id="myInfo" class="small"></div>
+  </div>
+
+  <!-- 발표자: 방 생성 -->
+  <div id="createRoomCard" class="card hidden">
+    <h3>방 생성</h3>
+    <div style="margin-top:8px">
+      <label>방 제목</label><input id="roomTitle" placeholder="예: 2분기 사업 업데이트" />
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="createRoomBtn" class="btn half">생성</button>
+      <button id="cancelCreate" class="btn ghost half">취소</button>
+    </div>
+  </div>
+
+  <!-- 방 화면(발표자/청중 공통) -->
+  <div id="roomCard" class="card hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <strong id="roomTitleView"></strong>
+        <div class="small" id="roomMeta"></div>
+      </div>
+      
+    </div>
+
+    <div id="presenterControls" class="hidden" style="margin-top:12px">
+      <div class="small">질문 개수 <span id="qCount">0</span></div>
+    </div>
+
+    <div id="askArea" style="margin-top:12px">
+      <div id="askForm" class="">
+        <textarea id="qText" rows="3" placeholder="질문을 입력하세요"></textarea>
+        <div style="margin-top:8px" class="row">
+          <button id="submitQ" class="btn half">제출</button>
+          <button id="backToDash" class="btn ghost half">나가기</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="questionsList" style="margin-top:12px"></div>
+  </div>
+
+  
+</div>
+
+<script>
+  // 간단 유틸
+  const qs = (s, el=document) => el.querySelector(s);
+  const qsa = (s, el=document) => Array.from(el.querySelectorAll(s));
+  const uid = () => 'r'+Math.random().toString(36).slice(2,9);
+
+  // 상태
+  let user = null; // {id,pw,name}
+  let currentRoom = null; // roomId
+  // 로컬스토리지 키
+  const LS_USERS = 'ax_users';
+  const LS_ROOMS = 'ax_rooms';
+  const LS_SESSION = 'ax_session';
+
+  // 초기화
+  function loadState(){ 
+    try{ user = JSON.parse(localStorage.getItem(LS_SESSION)); }catch(e){user=null;}
+    renderInitial();
+  }
+
+  function saveSession(u){ localStorage.setItem(LS_SESSION, JSON.stringify(u)); user=u; renderInitial(); }
+  function clearSession(){ localStorage.removeItem(LS_SESSION); user=null; currentRoom=null; renderInitial(); }
+
+  // 룸/데이터 helpers
+  function loadRooms(){ return JSON.parse(localStorage.getItem(LS_ROOMS) || '{}'); }
+  function saveRooms(r){ localStorage.setItem(LS_ROOMS, JSON.stringify(r)); }
+
+  function createRoom(title, owner){
+    const rooms = loadRooms();
+    const id = uid();
+    rooms[id] = {id,title,owner,created:Date.now(),questions:[],pinned:[]};
+    saveRooms(rooms);
+    return id;
+  }
+
+  function getRoom(id){
+    return loadRooms()[id] || null;
+  }
+
+  function saveRoom(room){
+    const rooms = loadRooms();
+    rooms[room.id] = room;
+    saveRooms(rooms);
+  }
+
+  // 로그인
+  qs('#btnLogin').addEventListener('click', ()=>{
+    const id = qs('#inputId').value.trim();
+    const pw = qs('#inputPw').value.trim();
+    const name = qs('#inputName').value.trim() || id;
+    if(!id||!pw){ alert('아이디와 비밀번호 입력'); return; }
+    // PoC: 사용자 저장(간단)
+    const users = JSON.parse(localStorage.getItem(LS_USERS)||'{}');
+    users[id] = {id,pw,name};
+    localStorage.setItem(LS_USERS, JSON.stringify(users));
+    saveSession({id,pw,name});
+  });
+
+ 
+  qs('#btnLogout').addEventListener('click', ()=>{ if(confirm('로그아웃 하시겠습니까?')) clearSession(); });
+
+  // 대시보드 버튼
+  qs('#btnCreateRoom').addEventListener('click', ()=>{ showCard('createRoomCard'); });
+  qs('#cancelCreate').addEventListener('click', ()=>{ showCard('dash'); });
+  qs('#createRoomBtn').addEventListener('click', ()=>{
+    const title = qs('#roomTitle').value.trim() || (user? user.name+'의 방' : '익명의 방');
+    const id = createRoom(title, user?user.id:'guest');
+    currentRoom = id;
+    showRoom(id);
+  });
+
+  qs('#btnEnterRoom').addEventListener('click', ()=>{
+    const id = prompt('입장할 방 ID를 입력하세요 (예: rxxxxxx)'); if(!id) return;
+    const room = getRoom(id);
+    if(!room){ alert('해당 방을 찾을 수 없습니다.'); return; }
+    currentRoom = id;
+    showRoom(id);
+  });
+
+  qs('#backToDash').addEventListener('click', ()=>{ currentRoom=null; showCard('dash'); });
+
+  // 질문 제출
+  qs('#submitQ').addEventListener('click', ()=>{
+    const txt = qs('#qText').value.trim();
+    if(!txt){ alert('질문 내용을 입력하세요'); return; }
+    const room = getRoom(currentRoom);
+    const q = {id:uid(), text:txt, author: user? user.name : '익명', likes:0, likedBy:[], created:Date.now()};
+    room.questions.push(q);
+    saveRoom(room);
+    qs('#qText').value='';
+    renderQuestions(room);
+  });
+
+  // 방 표시
+  function showRoom(id){
+    const room = getRoom(id);
+    if(!room){ alert('방이 없습니다'); return; }
+    showCard('roomCard');
+    qs('#roomTitleView').textContent = room.title;
+    qs('#roomMeta').textContent = '방ID: '+room.id+' • 생성자: '+room.owner;
+       // 발표자 제어 노출 여부 (간단 판단: 로그인한 사용자가 방 소유자면 발표자)
+    if(user && user.id === room.owner){
+      qs('#presenterControls').classList.remove('hidden');
+      qs('#askForm').classList.add('hidden');
+      qs('#roleTag').textContent = '발표자';
+    } else {
+      qs('#presenterControls').classList.add('hidden');
+      qs('#askForm').classList.remove('hidden');
+      qs('#roleTag').textContent = '게스트';
+    }
+    renderQuestions(room);
+  }
+
+ 
+  // 질문 리스트 렌더
+  function renderQuestions(room){
+    qs('#qCount').textContent = room.questions.length;
+    // 정렬: pinned 먼저 (순서 유지), 그 다음 likes desc, 같은 likes -> 최신
+    const pinnedSet = new Set(room.pinned || []);
+    const pinned = room.questions.filter(q=>pinnedSet.has(q.id));
+    const others = room.questions.filter(q=>!pinnedSet.has(q.id));
+    others.sort((a,b)=> b.likes - a.likes || b.created - a.created);
+    const list = [...pinned.map(q=>({...q,pinned:true})), ...others];
+    const container = qs('#questionsList');
+    container.innerHTML = '';
+    list.forEach(q=>{
+      const div = document.createElement('div');
+      div.className = 'question' + (q.pinned? ' pinned':'');
+      div.innerHTML = `
+        <div class="q-left">
+          <div style="font-weight:600">${escapeHtml(q.text)}</div>
+          <div class="meta">${escapeHtml(q.author)} • ${new Date(q.created).toLocaleTimeString()}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <button class="like" data-id="${q.id}">👍<span class="count">${q.likes}</span></button>
+          ${ (user && user.id===room.owner) ? `<button class="btn ghost pinBtn" data-id="${q.id}" style="margin-top:6px">📌</button>` : '' }
+        </div>
+      `;
+      container.appendChild(div);
+    });
+
+    // 이벤트 바인딩: 좋아요
+    qsa('.like', container).forEach(btn=>{
+      btn.onclick = ()=>{
+        const id = btn.dataset.id;
+        handleLike(room.id,id);
+      };
+    });
+     // pin buttons
+    qsa('.pinBtn', container).forEach(b=>{
+      b.onclick = ()=>{
+        const id = b.dataset.id;
+        togglePin(room.id,id);
+      };
+    });
+
+  }
+
+  // 좋아요 처리 (클라이언트 로컬 기반: 사용자별 liked 기록을 localStorage per-session)
+  function handleLike(roomId,qId){
+    const room = getRoom(roomId);
+    if(!room) return;
+    const sessionLikesKey = 'ax_likes_'+(user?user.id:'guest');
+    const liked = JSON.parse(localStorage.getItem(sessionLikesKey)||'[]');
+    if(liked.includes(qId)){ alert('이미 좋아요를 누르셨습니다.'); return; }
+    // 증가
+    const q = room.questions.find(x=>x.id===qId);
+    if(!q) return;
+    q.likes = (q.likes||0)+1;
+    q.likedBy = q.likedBy || [];
+    q.likedBy.push(user?user.id:'guest');
+    saveRoom(room);
+    liked.push(qId);
+    localStorage.setItem(sessionLikesKey, JSON.stringify(liked));
+    renderQuestions(room);
+  }
+
+  function togglePin(roomId,qId){
+    const room = getRoom(roomId);
+    if(!room) return;
+    room.pinned = room.pinned || [];
+    if(room.pinned.includes(qId)){
+      room.pinned = room.pinned.filter(x=>x!==qId);
+    } else {
+      room.pinned.push(qId);
+    }
+    saveRoom(room);
+    renderQuestions(room);
+  }
+
+  // 간단 카드 전환
+  function showCard(id){
+    ['loginCard','dash','createRoomCard','roomCard'].forEach(x=>{
+      qs('#'+x).classList.add('hidden');
+    });
+    qs('#'+id).classList.remove('hidden');
+  }
+
+  // 기본 렌더링
+  function renderInitial(){
+    if(!user){
+      showCard('loginCard');
+      qs('#roleTag').textContent = '';
+      qs('#myInfo').textContent = '';
+    } else {
+      showCard('dash');
+      qs('#myInfo').textContent = `로그인: ${user.name} (${user.id})`;
+    }
+    qs('#createRoomCard').classList.add('hidden');
+    qs('#presenterControls').classList.add('hidden');
+    qs('#roomCard').classList.add('hidden');
+  }
+
+  // URL에 room 파라미터가 있으면 바로 입장 가능
+  function tryEnterFromUrl(){
+    const p = new URLSearchParams(location.search);
+    const r = p.get('room');
+    if(r){
+      const room = getRoom(r);
+      if(room){
+        currentRoom = r;
+        showRoom(r);
+      }
+    }
+  }
+
+  // Helpers
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+  // QR SVG generator (very small implementation)
+  function qrSvg(text,size=120){
+    // For PoC: use simple identicon-like placeholder showing URL text (not a real QR)
+    // This keeps code small. In production, integrate a real QR library.
+    const short = text.length>24? text.slice(0,24)+'...': text;
+    return `<div style="font-size:11px;color:#222">${short}</div><svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="${size}" height="${size}" fill="#fff" rx="8"/>
+      <g fill="#111">
+        <rect x="8" y="8" width="20" height="20"/>
+        <rect x="${size-28}" y="8" width="20" height="20"/>
+        <rect x="8" y="${size-28}" width="20" height="20"/>
+        <rect x="${Math.floor(size/2)-10}" y="${Math.floor(size/2)-10}" width="20" height="20"/>
+      </g>
+    </svg>`;
+  }
+
+  // 시작
+  loadState();
+  tryEnterFromUrl();
+
+
+
+  // 페이지 리로드 간단한 동기화: storage 이벤트를 사용해 다른 탭 변경 반영
+  window.addEventListener('storage', (e)=>{
+    if(e.key===LS_ROOMS && currentRoom){
+      const r = getRoom(currentRoom);
+      if(r) renderQuestions(r);
+    }
+  });
+</script>
+</body>
+</html>
