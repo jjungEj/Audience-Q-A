@@ -4,6 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>AX Q&A PoC</title>
+<!-- Favicon 추가 -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
 <style>
   :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans KR',Arial;}
   body{margin:0;background:#f6f7fb;color:#111}
@@ -52,6 +54,42 @@
     padding: 0;
   }
   @media(min-width:520px){body{background:#eef2f9}}
+  
+  /* 커스텀 메시지 박스 스타일 */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+  .modal-content {
+    background: #fff;
+    padding: 24px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    width: 90%;
+    max-width: 320px;
+    text-align: center;
+  }
+  .modal-content h4 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #333;
+  }
+  .modal-content p {
+    margin: 16px 0 24px;
+    color: #555;
+  }
+  .modal-content button {
+    width: auto;
+    padding: 10px 20px;
+  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
@@ -94,7 +132,7 @@
       <label>이름</label><input id="inputName" placeholder="표시될 이름 (발표자 이름)" />
     </div>
     <div class="row" style="margin-top:10px">
-      <button id="btnLogin" class="btn half">로그인</button>
+      <button id="btnLogin" class="btn half">로그인 / 가입</button>
       <button id="btnJoinRoom" class="btn ghost half">방 코드로 접속</button>
     </div>
     <div style="margin-top:8px; text-align:right">
@@ -166,6 +204,15 @@
   
 </div>
 
+<!-- 커스텀 메시지 박스 -->
+<div id="messageModal" class="modal-overlay hidden">
+  <div class="modal-content">
+    <h4 id="modalTitle"></h4>
+    <p id="modalMessage"></p>
+    <button id="modalOkBtn" class="btn">확인</button>
+  </div>
+</div>
+
 <script>
   // 간단 유틸
   const qs = (s, el=document) => el.querySelector(s);
@@ -184,6 +231,22 @@
   function loadState(){ 
     try{ user = JSON.parse(localStorage.getItem(LS_SESSION)); }catch(e){user=null;}
     renderInitial();
+  }
+  
+  // 커스텀 메시지 박스
+  function showMessage(title, message){
+      const modal = qs('#messageModal');
+      const modalTitle = qs('#modalTitle');
+      const modalMessage = qs('#modalMessage');
+      const modalOkBtn = qs('#modalOkBtn');
+      
+      modalTitle.textContent = title;
+      modalMessage.textContent = message;
+      modal.classList.remove('hidden');
+      
+      modalOkBtn.onclick = () => {
+          modal.classList.add('hidden');
+      };
   }
 
   // Firebase DB에서 데이터 가져오기 (실시간 리스너)
@@ -222,7 +285,9 @@
   }
 
   function deleteRoom(roomId){
-    if(confirm('정말로 이 방을 삭제하시겠습니까? 모든 질문과 데이터가 사라집니다.')){
+    // confirm을 커스텀 메시지 박스로 대체
+    const confirmDelete = window.confirm('정말로 이 방을 삭제하시겠습니까? 모든 질문과 데이터가 사라집니다.');
+    if(confirmDelete){
       remove(ref(db, 'rooms/' + roomId));
       if(currentRoom === roomId){
           currentRoom = null;
@@ -236,7 +301,7 @@
     get(ref(db, 'rooms/' + id)).then((snapshot) => {
       const room = snapshot.val();
       if(!room){
-        alert('방이 없습니다');
+        showMessage('오류', '방이 없습니다.');
         return;
       }
       showCard('roomCard');
@@ -331,7 +396,7 @@
         if(!room) return;
         const sessionLikesKey = 'ax_likes_'+(user?user.id:'guest');
         const liked = JSON.parse(localStorage.getItem(sessionLikesKey)||'[]');
-        if(liked.includes(qId)){ alert('이미 좋아요를 누르셨습니다.'); return; }
+        if(liked.includes(qId)){ showMessage('알림', '이미 좋아요를 누르셨습니다.'); return; }
         // 증가
         const q = (room.questions || []).find(x=>x.id===qId);
         if(!q) return;
@@ -432,8 +497,7 @@
           currentRoom = r;
           showRoom(r);
         } else {
-            showCard('loginCard');
-            alert('해당 방을 찾을 수 없습니다. 올바른 URL을 확인해주세요.');
+            showMessage('알림', '해당 방을 찾을 수 없습니다. 올바른 URL을 확인해주세요.');
         }
       });
     }
@@ -454,21 +518,40 @@
           const id = qs('#inputId').value.trim();
           const pw = qs('#inputPw').value.trim();
           const name = qs('#inputName').value.trim() || id;
-          if(!id||!pw){ alert('아이디와 비밀번호 입력'); return; }
+          if(!id || !pw){ 
+            showMessage('오류', '아이디와 비밀번호를 입력해주세요.'); 
+            return; 
+          }
           const users = JSON.parse(localStorage.getItem(LS_USERS)||'{}');
-          users[id] = {id,pw,name};
-          localStorage.setItem(LS_USERS, JSON.stringify(users));
-          saveSession({id,pw,name});
+          
+          if(users[id]){
+              // 로그인
+              if(users[id].pw === pw){
+                  saveSession({id, pw, name: users[id].name});
+              } else {
+                  showMessage('오류', '아이디 또는 비밀번호가 올바르지 않습니다.');
+              }
+          } else {
+              // 가입
+              users[id] = {id,pw,name};
+              localStorage.setItem(LS_USERS, JSON.stringify(users));
+              saveSession({id,pw,name});
+              showMessage('알림', '새 계정이 생성되었습니다. 로그인되었습니다.');
+          }
         });
     
-        qs('#btnLogout').addEventListener('click', ()=>{ if(confirm('로그아웃 하시겠습니까?')) clearSession(); });
+        qs('#btnLogout').addEventListener('click', ()=>{ 
+            // confirm을 커스텀 메시지 박스로 대체
+            const confirmLogout = window.confirm('로그아웃 하시겠습니까?');
+            if(confirmLogout) clearSession(); 
+        });
     
         qs('#btnJoinRoom').addEventListener('click', ()=>{ showCard('joinRoomCard'); });
         qs('#cancelJoin').addEventListener('click', ()=>{ showCard('loginCard'); });
         qs('#joinRoomBtn').addEventListener('click', ()=>{
           const roomCode = qs('#roomCodeInput').value.trim();
           if(!roomCode){
-              alert('방 코드를 입력해주세요.');
+              showMessage('오류', '방 코드를 입력해주세요.');
               return;
           }
           get(ref(db, 'rooms/' + roomCode)).then((snapshot) => {
@@ -477,15 +560,17 @@
                   currentRoom = roomCode;
                   showRoom(roomCode, snapshot.val());
               } else {
-                  alert('해당하는 방 코드가 없습니다.');
+                  showMessage('오류', '해당하는 방 코드가 없습니다.');
               }
           });
         });
     
         qs('#resetAnonymous').addEventListener('click', ()=>{
-          if(confirm('익명 세션을 초기화하시겠습니까? 좋아요 누른 기록이 모두 삭제됩니다.')){
+          // confirm을 커스텀 메시지 박스로 대체
+          const confirmReset = window.confirm('익명 세션을 초기화하시겠습니까? 좋아요 누른 기록이 모두 삭제됩니다.');
+          if(confirmReset){
               localStorage.removeItem('ax_likes_guest');
-              alert('초기화 완료. 다시 좋아요를 누를 수 있습니다.');
+              showMessage('알림', '초기화 완료. 다시 좋아요를 누를 수 있습니다.');
           }
         });
     
@@ -509,7 +594,7 @@
     
         qs('#submitQ').addEventListener('click', ()=>{
           const txt = qs('#qText').value.trim();
-          if(!txt){ alert('질문 내용을 입력하세요'); return; }
+          if(!txt){ showMessage('오류', '질문 내용을 입력하세요.'); return; }
           get(ref(db, 'rooms/' + currentRoom)).then((snapshot) => {
             const room = snapshot.val();
             if(!room) return;
