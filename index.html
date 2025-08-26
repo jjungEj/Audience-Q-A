@@ -54,42 +54,6 @@
     padding: 0;
   }
   @media(min-width:520px){body{background:#eef2f9}}
-  
-  /* 커스텀 메시지 박스 스타일 */
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
-  .modal-content {
-    background: #fff;
-    padding: 24px;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    width: 90%;
-    max-width: 320px;
-    text-align: center;
-  }
-  .modal-content h4 {
-    margin-top: 0;
-    font-size: 18px;
-    color: #333;
-  }
-  .modal-content p {
-    margin: 16px 0 24px;
-    color: #555;
-  }
-  .modal-content button {
-    width: auto;
-    padding: 10px 20px;
-  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
@@ -166,6 +130,10 @@
         <div class="small">QR코드를 스캔하거나, 아래 코드로 접속하세요.</div>
         <div style="font-size:18px;font-weight:600;color:#333" id="roomCodeDisplay"></div>
       </div>
+      <!-- 발표자용 '나가기' 버튼 추가 -->
+      <div class="row" style="margin-top:10px">
+        <button id="presenterBackToDash" class="btn ghost">나가기</button>
+      </div>
     </div>
 
     <div id="askArea" style="margin-top:12px">
@@ -183,17 +151,8 @@
   
 </div>
 
-<!-- 커스텀 메시지 박스 -->
-<div id="messageModal" class="modal-overlay hidden">
-  <div class="modal-content">
-    <h4 id="modalTitle"></h4>
-    <p id="modalMessage"></p>
-    <button id="modalOkBtn" class="btn">확인</button>
-  </div>
-</div>
-
 <script type="module">
-  // Firebase SDKs 가져오기 (get 함수 추가)
+  // Firebase SDKs 가져오기
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
   import { getDatabase, ref, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
 
@@ -224,62 +183,29 @@
   const LS_SESSION = 'ax_session';
 
   // 세션 저장 및 로드
-  function saveSession(u){ localStorage.setItem(LS_SESSION, JSON.stringify(u)); user=u; renderInitial(); }
-  function clearSession(){ localStorage.removeItem(LS_SESSION); user=null; currentRoom=null; renderInitial(); }
+  function saveSession(u){ 
+    localStorage.setItem(LS_SESSION, JSON.stringify(u)); 
+    user=u; 
+    renderInitial(); 
+  }
+
+  function clearSession(){ 
+    localStorage.removeItem(LS_SESSION); 
+    user=null; 
+    currentRoom=null; 
+    renderInitial(); 
+  }
+
   function loadState(){ 
     try{ user = JSON.parse(localStorage.getItem(LS_SESSION)); }catch(e){user=null;}
     renderInitial();
   }
   
-  // 커스텀 메시지 박스
+  // 메시지 및 확인 기능 (모든 팝업 제거)
   function showMessage(title, message){
-      const modal = qs('#messageModal');
-      const modalTitle = qs('#modalTitle');
-      const modalMessage = qs('#modalMessage');
-      const modalOkBtn = qs('#modalOkBtn');
-      
-      modalTitle.textContent = title;
-      modalMessage.textContent = message;
-      modal.classList.remove('hidden');
-      
-      modalOkBtn.onclick = () => {
-          modal.classList.add('hidden');
-      };
+    console.log(`[메시지] ${title}: ${message}`);
   }
   
-  // 커스텀 confirm 박스
-  function showConfirm(title, message, onConfirm, onCancel){
-      const modal = qs('#messageModal');
-      const modalTitle = qs('#modalTitle');
-      const modalMessage = qs('#modalMessage');
-      const modalOkBtn = qs('#modalOkBtn');
-      
-      modalTitle.textContent = title;
-      modalMessage.textContent = message;
-      modal.classList.remove('hidden');
-
-      const btnCancel = document.createElement('button');
-      btnCancel.textContent = '취소';
-      btnCancel.className = 'btn ghost';
-      btnCancel.style.marginLeft = '8px';
-      
-      modalOkBtn.textContent = '확인';
-      
-      modalOkBtn.onclick = () => {
-          modal.classList.add('hidden');
-          modalOkBtn.parentNode.removeChild(btnCancel);
-          if (onConfirm) onConfirm();
-      };
-      
-      btnCancel.onclick = () => {
-          modal.classList.add('hidden');
-          btnCancel.parentNode.removeChild(btnCancel);
-          if (onCancel) onCancel();
-      };
-
-      modalOkBtn.parentNode.appendChild(btnCancel);
-  }
-
   // Firebase DB에서 데이터 가져오기 (실시간 리스너)
   function listenToRooms() {
     onValue(ref(db, 'rooms'), (snapshot) => {
@@ -315,14 +241,13 @@
     return rooms[id] || null;
   }
 
+  // deleteRoom 함수에서 확인 창 제거
   function deleteRoom(roomId){
-    showConfirm('확인', '정말로 이 방을 삭제하시겠습니까? 모든 질문과 데이터가 사라집니다.', ()=>{
-      remove(ref(db, 'rooms/' + roomId));
-      if(currentRoom === roomId){
-          currentRoom = null;
-          showCard('dash');
-      }
-    });
+    remove(ref(db, 'rooms/' + roomId));
+    if(currentRoom === roomId){
+        currentRoom = null;
+        showCard('dash');
+    }
   }
 
   // 방 표시
@@ -452,7 +377,7 @@
 
   // 발표자 대시보드 렌더링
   function renderDashboard(allRooms){
-    const myRooms = Object.values(allRooms).filter(r => r.owner === user.id);
+    const myRooms = Object.values(allRooms).filter(r => user && r.owner === user.id);
     const container = qs('#myRoomsList');
     container.innerHTML = '';
     if(myRooms.length === 0){
@@ -525,8 +450,6 @@
         if(room){
           currentRoom = r;
           showRoom(r);
-        } else {
-            showMessage('알림', '해당 방을 찾을 수 없습니다. 올바른 URL을 확인해주세요.');
         }
       });
     }
@@ -563,9 +486,8 @@
       }
     });
 
-    qs('#btnLogout').addEventListener('click', ()=>{ 
-        showConfirm('확인', '로그아웃 하시겠습니까?', ()=>clearSession());
-    });
+    // 로그아웃 버튼을 누르면 즉시 세션 초기화
+    qs('#btnLogout').addEventListener('click', ()=>clearSession());
 
     qs('#btnJoinRoom').addEventListener('click', ()=>{ showCard('joinRoomCard'); });
     qs('#cancelJoin').addEventListener('click', ()=>{ showCard('loginCard'); });
@@ -586,11 +508,10 @@
       });
     });
 
+    // 익명 세션 초기화 버튼을 누르면 즉시 로컬 스토리지 삭제
     qs('#resetAnonymous').addEventListener('click', ()=>{
-      showConfirm('확인', '익명 세션을 초기화하시겠습니까? 좋아요 누른 기록이 모두 삭제됩니다.', ()=>{
-          localStorage.removeItem('ax_likes_guest');
-          showMessage('알림', '초기화 완료. 다시 좋아요를 누를 수 있습니다.');
-      });
+      localStorage.removeItem('ax_likes_guest');
+      showMessage('알림', '초기화 완료. 다시 좋아요를 누를 수 있습니다.');
     });
 
     qs('#btnCreateRoom').addEventListener('click', ()=>{ showCard('createRoomCard'); });
@@ -601,15 +522,19 @@
       currentRoom = id;
       showRoom(id);
     });
-
-    qs('#backToDash').addEventListener('click', ()=>{ 
+    
+    // 발표자와 게스트 모두에게 적용될 '나가기' 버튼 이벤트 리스너
+    const backToDashHandler = () => {
       currentRoom = null;
       if (user) {
           showCard('dash');
       } else {
           showCard('loginCard');
       }
-    });
+    };
+
+    qs('#backToDash').addEventListener('click', backToDashHandler);
+    qs('#presenterBackToDash').addEventListener('click', backToDashHandler);
 
     qs('#submitQ').addEventListener('click', ()=>{
       const txt = qs('#qText').value.trim();
