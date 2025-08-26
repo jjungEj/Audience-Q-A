@@ -32,7 +32,7 @@
   .my-rooms-list .room-item button{width:auto;margin-left:8px;padding:6px 10px;font-size:13px}
   @media(min-width:520px){body{background:#eef2f9}}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -124,8 +124,6 @@
   const LS_USERS = 'ax_users';
   const LS_ROOMS = 'ax_rooms';
   const LS_SESSION = 'ax_session';
-
-  let qrcodeInstance = null; // To hold QR code object
 
   // 초기화
   function loadState(){ 
@@ -220,17 +218,20 @@
 
   // QR 코드 생성
   function generateQR(roomId) {
-    if (qrcodeInstance) {
-      qs('#qrcode').innerHTML = '';
-      qrcodeInstance = null;
-    } 
-    qrcodeInstance = new QRCode(qs('#qrcode'), {
-      width: 120,
-      height: 120
-    });
-    // GitHub Pages 환경에 맞게 URL 생성 방식 수정
     const url = `https://jjungej.github.io/Audience-Q-A/?room=${roomId}`;
-    qrcodeInstance.makeCode(url);
+    
+    // 기존 qrcode 컨테이너 비우기
+    qs('#qrcode').innerHTML = '';
+
+    // qrcode-generator 라이브러리 사용
+    QRCode.toCanvas(qs('#qrcode'), url, {
+        width: 120,
+        height: 120
+    }, function (error) {
+        if (error) console.error(error);
+        else console.log('QR Code generated!');
+    });
+    
     qs('#roomCodeDisplay').textContent = roomId;
   }
   
