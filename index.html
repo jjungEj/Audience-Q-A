@@ -260,14 +260,14 @@
     messageButtons.innerHTML = '';
     
     // 자동 숨김 여부에 따라 버튼 추가
-   /* if (!autoHide) {
+    if (!autoHide) {
         // 단순 메시지 팝업에는 확인 버튼만 추가
         const okBtn = document.createElement('button');
         okBtn.className = 'btn half';
         okBtn.textContent = '확인';
         okBtn.onclick = () => messageBox.classList.add('hidden');
         messageButtons.appendChild(okBtn);
-    }*/
+    }
 
     messageBox.classList.remove('hidden');
 
